@@ -1,7 +1,11 @@
 import "server-only";
 import {
+  RANGES,
   albNameFromArn,
   capacityFromGroup,
+  capacityStepsFromEvents,
+  makeSeries,
+  hasData,
   targetGroupNameFromArn,
 } from "@/lib/data/normalize";
 import { normalizeAwsError, classify } from "@/lib/errors/aws-errors";
@@ -85,16 +89,17 @@ export async function getOverview(ctx: AwsContext, range: RangeKey): Promise<Res
   const body = await cached(key(ctx, `overview:${range}`), CACHE_TTL_MS, async () => {
     const groupP = settle("autoscaling", () => describeGroup(ctx));
     const targetsP = settle("elbv2", () => getTargetHealth(ctx));
-    const eventsP = settle("autoscaling", () => getScalingEvents(ctx, 8));
+    const eventsP = settle("autoscaling", () => getScalingEvents(ctx, 30));
     const metricsP = groupP.then((g) =>
       settle("cloudwatch", () => getMetrics(ctx, range, g.ok ? instanceIdsOf(g.value) : [])),
     );
     const [group, targets, events, metrics] = await Promise.all([groupP, targetsP, eventsP, metricsP]);
 
+    const fetchedNow = new Date().toISOString();
     const errors: PanelError[] = [];
     for (const r of [group, targets, events, metrics]) if (!r.ok) errors.push(r.error);
     if (metrics.ok) {
-      for (const s of Object.values(metrics.value)) {
+      for (const s of [metrics.value.cpu, metrics.value.requests, metrics.value.responseTime]) {
         if (s.latestObservedAt === null) {
           errors.push({
             source: "cloudwatch",
@@ -105,13 +110,37 @@ export async function getOverview(ctx: AwsContext, range: RangeKey): Promise<Res
       }
     }
     const okPanels = [group, targets, events, metrics].filter((r) => r.ok).length;
-    const recentEvents = events.ok ? events.value : [];
+    const allEvents = events.ok ? events.value : [];
+    const recentEvents = allEvents.slice(0, 8);
+    let metricsOut: OverviewResponse["metrics"] = emptyMetrics;
+    if (metrics.ok) {
+      metricsOut = metrics.value;
+      if (!hasData(metrics.value.desired.points) && allEvents.length > 0) {
+        const spec = RANGES[range];
+        const end = Date.parse(fetchedNow);
+        const pts = capacityStepsFromEvents(allEvents, end - spec.durationMs, end, spec.albPeriod);
+        if (hasData(pts)) {
+          metricsOut = {
+            ...metrics.value,
+            desired: makeSeries(
+              {
+                ...metrics.value.desired,
+                metricName: "DesiredCapacity (reconstructed from scaling activities)",
+                aggregationNote:
+                  "Reconstructed from DescribeScalingActivities text (\"capacity from X to Y\"); the AWS/AutoScaling group metric returned no datapoints. Steps only; launch/health-check lag is not shown.",
+              },
+              pts,
+            ),
+          };
+        }
+      }
+    }
     const result: OverviewResponse = {
       ...envelope(ctx, errors, okPanels),
       range,
       capacity: group.ok ? capacityFromGroup(group.value) : null,
       targets: targets.ok ? targets.value : null,
-      metrics: metrics.ok ? metrics.value : emptyMetrics,
+      metrics: metricsOut,
       recentEvents,
       lastActivityAt: recentEvents[0]?.startedAt ?? null,
     };

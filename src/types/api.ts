@@ -67,11 +67,11 @@ export interface TimePoint {
 }
 
 export interface MetricSeries {
-  id: "cpu" | "requests" | "responseTime";
-  namespace: "AWS/EC2" | "AWS/ApplicationELB";
+  id: "cpu" | "requests" | "responseTime" | "inService" | "desired";
+  namespace: "AWS/EC2" | "AWS/ApplicationELB" | "AWS/AutoScaling";
   metricName: string;
   statistic: "Average" | "Sum";
-  unit: "%" | "count" | "seconds";
+  unit: "%" | "count" | "seconds" | "instances";
   periodSeconds: 60 | 300;
   points: TimePoint[];
   latestObservedAt: string | null;
@@ -111,6 +111,9 @@ export interface OverviewResponse extends BaseApiResponse {
     cpu: MetricSeries | null;
     requests: MetricSeries | null;
     responseTime: MetricSeries | null;
+    /** Instance count over time (AWS/AutoScaling group metrics). Optional: older payloads lack it. */
+    inService?: MetricSeries | null;
+    desired?: MetricSeries | null;
   };
   recentEvents: ScalingEvent[];
   lastActivityAt: string | null;

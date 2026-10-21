@@ -207,6 +207,41 @@ export function sortEventsDesc(events: ScalingEvent[]): ScalingEvent[] {
   );
 }
 
+/**
+ * Rebuilds a desired-capacity step timeline from scaling activities whose AWS text states
+ * "capacity from X to Y". Only used when AWS/AutoScaling group metrics have no datapoints
+ * (group metrics collection was not enabled yet). Unknown stretches stay null, never guessed.
+ */
+export function capacityStepsFromEvents(
+  events: ScalingEvent[],
+  startMs: number,
+  endMs: number,
+  periodSeconds: number,
+): TimePoint[] {
+  const changes = events
+    .filter((e) => e.capacityChange && e.startedAt && e.status !== "Failed" && e.status !== "Cancelled")
+    .map((e) => ({ t: Date.parse(e.startedAt as string), ...(e.capacityChange as { from: number; to: number }) }))
+    .filter((c) => Number.isFinite(c.t))
+    .sort((a, b) => a.t - b.t);
+  const stepMs = periodSeconds * 1000;
+  const first = Math.ceil(startMs / stepMs) * stepMs;
+  const points: TimePoint[] = [];
+  for (let t = first; t <= endMs; t += stepMs) {
+    let value: number | null = null;
+    const firstChange = changes[0];
+    if (firstChange) {
+      if (t < firstChange.t) {
+        // Before the first change in the list we only know the value if that change is inside the window.
+        value = firstChange.t >= startMs ? firstChange.from : null;
+      } else {
+        for (const c of changes) if (c.t <= t) value = c.to;
+      }
+    }
+    points.push({ timestamp: new Date(t).toISOString(), value });
+  }
+  return points;
+}
+
 // ---- ELBv2 -----------------------------------------------------------------------
 
 const TARGET_STATES: AlbTargetState[] = [

@@ -54,6 +54,8 @@ export interface MetricsResult {
   cpu: MetricSeries;
   requests: MetricSeries;
   responseTime: MetricSeries;
+  inService: MetricSeries;
+  desired: MetricSeries;
 }
 
 /**
@@ -112,6 +114,21 @@ export async function getMetrics(
         Stat: "Average",
       },
     },
+    ...(["GroupInServiceInstances", "GroupDesiredCapacity"] as const).map(
+      (metricName, i): MetricDataQuery => ({
+        Id: i === 0 ? "gis" : "gdc",
+        ReturnData: true,
+        MetricStat: {
+          Metric: {
+            Namespace: "AWS/AutoScaling",
+            MetricName: metricName,
+            Dimensions: [{ Name: "AutoScalingGroupName", Value: ctx.asgName }],
+          },
+          Period: spec.albPeriod,
+          Stat: "Average",
+        },
+      }),
+    ),
   ];
 
   const results = await fetchMetricData(ctx, queries, start, end);
@@ -175,7 +192,34 @@ export async function getMetrics(
     spec.albPeriod,
   );
 
+  const groupSeries = (id: "gis" | "gdc") =>
+    buildPoints(results.get(id)?.Timestamps, results.get(id)?.Values, startMs, endMs, spec.albPeriod);
+
   return {
+    inService: makeSeries(
+      {
+        id: "inService",
+        namespace: "AWS/AutoScaling",
+        metricName: "GroupInServiceInstances",
+        statistic: "Average",
+        unit: "instances",
+        periodSeconds: spec.albPeriod,
+        aggregationNote: "Instances in service, per-minute group metric (needs Auto Scaling group metrics collection).",
+      },
+      groupSeries("gis"),
+    ),
+    desired: makeSeries(
+      {
+        id: "desired",
+        namespace: "AWS/AutoScaling",
+        metricName: "GroupDesiredCapacity",
+        statistic: "Average",
+        unit: "instances",
+        periodSeconds: spec.albPeriod,
+        aggregationNote: "Desired capacity set by the scaling policy, per-minute group metric.",
+      },
+      groupSeries("gdc"),
+    ),
     cpu: makeSeries(
       {
         id: "cpu",

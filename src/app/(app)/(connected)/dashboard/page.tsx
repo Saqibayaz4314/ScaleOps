@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { CapacityChart } from "@/components/dashboard/capacity-chart";
 import { CapacityRail } from "@/components/dashboard/capacity-rail";
 import { ExportEvidence } from "@/components/dashboard/export-evidence";
 import { HealthSummary } from "@/components/dashboard/health-summary";
@@ -131,6 +132,13 @@ export default function DashboardPage() {
                 />
                 <HealthSummary targets={data.targets} unavailable={targetsError?.message} />
               </div>
+
+              <CapacityChart
+                inService={data.metrics.inService}
+                desired={data.metrics.desired}
+                capacity={data.capacity}
+                range={range}
+              />
 
               <Panel
                 title="Recent scaling activity"

@@ -1,0 +1,2 @@
+cd D:\client\Aws-deployed-web\scaleops-demo
+k6 run tests/k6-rampup.js -e ALB_URL=http://scaleops-demo-hackathon-alb-559383597.us-east-1.elb.amazonaws.com

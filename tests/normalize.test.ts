@@ -100,3 +100,29 @@ describe("summarizeTargets", () => {
     expect(s.targets[2]?.state).toBe("unknown");
   });
 });
+
+import { capacityStepsFromEvents } from "@/lib/data/normalize";
+import type { ScalingEvent } from "@/types/api";
+
+describe("capacityStepsFromEvents", () => {
+  const ev = (at: string, from: number, to: number): ScalingEvent => ({
+    activityId: at,
+    startedAt: at,
+    endedAt: null,
+    statusCode: "Successful",
+    status: "Successful",
+    description: "",
+    cause: "",
+    progress: null,
+    capacityChange: { from, to },
+  });
+  const start = Date.parse("2026-10-21T10:00:00Z");
+  const end = Date.parse("2026-10-21T10:05:00Z");
+  it("builds steps and keeps unknown stretches null", () => {
+    const pts = capacityStepsFromEvents([ev("2026-10-21T10:02:00Z", 1, 2)], start, end, 60);
+    expect(pts.map((p) => p.value)).toEqual([1, 1, 2, 2, 2, 2]);
+    const none = capacityStepsFromEvents([ev("2026-10-21T09:00:00Z", 1, 2)], start, end, 60);
+    expect(none.every((p) => p.value === 2)).toBe(true);
+    expect(capacityStepsFromEvents([], start, end, 60).every((p) => p.value === null)).toBe(true);
+  });
+});
