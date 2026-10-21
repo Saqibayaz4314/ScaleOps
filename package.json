@@ -1,0 +1,50 @@
+{
+  "name": "scaleops-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "preflight": "node --env-file-if-exists=.env.local scripts/preflight.mjs",
+    "test": "vitest run",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "gen:key": "node scripts/gen-keys.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-auto-scaling": "^3.1154.0",
+    "@aws-sdk/client-cloudwatch": "^3.1154.0",
+    "@aws-sdk/client-ec2": "^3.1154.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.1154.0",
+    "@aws-sdk/client-sts": "^3.1154.0",
+    "lucide-react": "^1.61.0",
+    "next": "^16.4.2",
+    "pg": "^8.23.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "recharts": "^3.10.1",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.2",
+    "postcss": "^8.5.31",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5"
+  }
+}
